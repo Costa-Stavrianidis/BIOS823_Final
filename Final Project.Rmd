@@ -1,30 +1,33 @@
 ---
-title: "BIOS823_Final"
-author: "Costa Stavrianidis"
-date: "2022-12-13"
+title: "**Comparison of Matrix Algebra Computational Performance Between Base R and RcppEigen**"
+author: "**Costa Stavrianidis**"
 output: pdf_document
+fontsize: 10pt
+indent: true
+classoption:
+  - twocolumn
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(RcppEigen)
+library(microbenchmark)
+library(foreach)
 ```
 
-## R Markdown
+\begin{center}
+\textbf{\Large Abstract}
+\end{center}
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+\begin{small}
+In this study, we compare the performance of various matrix algebra computations across functions in base R and functions created using the RcppEigen package.
+\end{small}
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+\vspace{12pt}
 
-```{r cars}
-summary(cars)
-```
+\begin{center}
+\textbf{\Large Introduction}
+\end{center}
+Compiled programming languages have their programs compiled into machine-readable instructions before execution. Examples of compiled languages include C, C++, Rust, and Fortran. Interpreted languages have their programs read and executed by an interpreter rather than translating the program into machine-readable instructions. Examples of interpreted languages include Python, R, and JavaScript.
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Both types of languages contain their own advantages and disadvantages. The advantage of creating a compiled program is that it is faster than an interpreted program at execution. 
