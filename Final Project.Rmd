@@ -20,7 +20,7 @@ library(foreach)
 \end{center}
 
 \begin{small}
-In this study, we compare the performance of various matrix algebra computations across functions in base R and functions created using the RcppEigen package.
+In this study, we compare the performance of various matrix algebra computations across functions in base R and functions created using the RcppEigen package. The goal is to quantify the efficiency differences between the two for computations that complete the same goal. 
 \end{small}
 
 \vspace{12pt}
@@ -30,4 +30,117 @@ In this study, we compare the performance of various matrix algebra computations
 \end{center}
 Compiled programming languages have their programs compiled into machine-readable instructions before execution. Examples of compiled languages include C, C++, Rust, and Fortran. Interpreted languages have their programs read and executed by an interpreter rather than translating the program into machine-readable instructions. Examples of interpreted languages include Python, R, and JavaScript.
 
-Both types of languages contain their own advantages and disadvantages. The advantage of creating a compiled program is that it is faster than an interpreted program at execution. 
+Both types of languages contain their own advantages and disadvantages. The advantage of creating a compiled program is that it is faster than an interpreted program at execution.
+
+```{Rcpp, include=FALSE}
+// Creating functions to compare with base R using RccpEigen
+#include <Rcpp.h>
+#include <RcppEigen.h>
+
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
+using Eigen::Map;
+
+//[[Rcpp::depends(RcppEigen)]]
+//[[Rcpp::export]]
+
+MatrixXd simmat(int nrow, int ncol, double mu, double sigma) {
+  // Simulate a random matrix of dimension nrow  x ncol whose
+  // entries are drawn independently from a Normal(mu, sigma) distribution
+  MatrixXd matA(nrow, ncol);
+  VectorXd randvec(nrow*ncol);
+  randvec = Rcpp::as< Map<VectorXd> >(Rcpp::rnorm(nrow*ncol, mu,sigma));
+  return Map<MatrixXd>(randvec.data(), nrow, ncol);
+}
+
+//[[Rcpp::depends(RcppEigen)]]
+//[[Rcpp::export]]
+
+MatrixXd elemmult(MatrixXd matA, MatrixXd matB) {
+  // Function for element-wise matrix multiplication
+  return matA.array() * matB.array();
+}
+
+//[[Rcpp::depends(RcppEigen)]]
+//[[Rcpp::export]]
+
+MatrixXd matrixmult(MatrixXd matA, MatrixXd matB) {
+  // Function for matrix multiplication
+  return matA * matB;
+}
+
+//[[Rcpp::depends(RcppEigen)]]
+//[[Rcpp::export]]
+
+MatrixXd eigentranspose(MatrixXd matA) {
+  // Function for matrix transposition
+  return matA.transpose();
+}
+
+//[[Rcpp::depends(RcppEigen)]]
+//[[Rcpp::export]]
+
+MatrixXd eigeninv(MatrixXd matA) {
+  // Function for Eigen inversion
+  return matA.inverse();
+}
+
+//[[Rcpp::depends(RcppEigen)]]
+//[[Rcpp::export]]
+
+MatrixXd cholinv(MatrixXd matA) {
+  // Function for Cholesky inversion
+  return matA.llt().solve(MatrixXd::Identity(matA.rows(), matA.rows()));
+}
+```
+
+```{r, include=FALSE}
+# Checking to see RcppEigen and R functions return same values
+set.seed(100)
+matA <- simmat(10, 10, 0, 1)
+matB <- simmat(10, 10, 0, 1)
+# Make vectors symmetric
+matA <- matA * t(matA)
+matB <- matB * t(matB)
+
+all.equal(elemmult(matA, matB), matA*matB)
+all.equal(matrixmult(matA, matB), matA%*%matB)
+all.equal(eigentranspose(matA), t(matA))
+all.equal(eigeninv(matA), solve(matA))
+# Will not be equal because Cholesky inversion requires matrix to be positive definite
+all.equal(cholinv(matA), chol2inv(matA))
+```
+
+```{r, include=FALSE}
+# First we can compare matrix simulation
+set.seed(100)
+m <- 10
+matA <- matrix(rnorm(m*m), m, m)
+matA <- matA %*% t(matA)
+isSymmetric(matA)
+vecx <- rnorm(m)
+vecb <- as.numeric(matA%*%vecx)
+```
+
+```{r, include=FALSE}
+start_time1 <- Sys.time()
+x <- chol2inv(matA)
+end_time1 <- Sys.time()
+end_time1 - start_time1
+
+start_time2 <- Sys.time()
+x <- cholinv(matA)
+end_time2 <- Sys.time()
+end_time2 - start_time2
+
+start_time3 <- Sys.time()
+x <- solve(matA)
+end_time3 <- Sys.time()
+end_time3 - start_time3
+
+start_time4 <- Sys.time()
+x <- eigeninv(matA)
+end_time4 <- Sys.time()
+end_time4 - start_time4
+```
+
