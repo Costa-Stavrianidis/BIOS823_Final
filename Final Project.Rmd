@@ -13,6 +13,7 @@ library(tidyverse)
 library(RcppEigen)
 library(microbenchmark)
 library(foreach)
+library(ggplot)
 ```
 
 \begin{center}
@@ -119,8 +120,8 @@ matA <- simmat(10, 10, 0, 1)
 matB <- simmat(10, 10, 0, 1)
 vecB <- rnorm(10)
 # Make matrices symmetric
-matA <- matA * t(matA)
-matB <- matB * t(matB)
+matA <- t(matA) %*% matA
+matB <- t(matB) %*% matB
 
 all.equal(elemmult(matA, matB), matA*matB)
 all.equal(matrixmult(matA, matB), matA%*%matB)
@@ -133,24 +134,49 @@ all.equal(as.vector(linearsolve(matA, vecB)), solve(matA, vecB))
 ```
 
 ```{r, include=FALSE}
-start_time1 <- Sys.time()
-x <- chol2inv(matA)
-end_time1 <- Sys.time()
-end_time1 - start_time1
+# Efficiency comparison using simulated matrices
+set.seed(100)
 
-start_time2 <- Sys.time()
-x <- cholinv(matA)
-end_time2 <- Sys.time()
-end_time2 - start_time2
+# Time unit for benchmarking
+timeunit <- "microseconds"
 
-start_time3 <- Sys.time()
-x <- solve(matA)
-end_time3 <- Sys.time()
-end_time3 - start_time3
+foreach::foreach(x = c(10L, 50L, 100L, 200L, 500L, 1000L), .combine = rbind) %do% {
 
-start_time4 <- Sys.time()
-x <- eigeninv(matA)
-end_time4 <- Sys.time()
-end_time4 - start_time4
+  # Simulate symmetric random matrix
+  matA <- simmat(x, x, 0, 1)
+  matB <- simmat(x, x, 0, 1)
+  matA <- t(matA) %*% matA
+  matB <- t(matB) %*% matB
+  vecB <- rnorm(x)
+  
+  # Conduct benchmark analysis
+  microbenchmark(
+    
+    # RcppEigen functions
+    eigen_elemmult = elemmult(matA, matB),
+    eigen_matrixmult = matrixmult(matA, matB),
+    eigen_transpose = eigentranspose(matA),
+    eigen_eigenvalues = eigenvalues(matA),
+    eigen_eigeninv = eigeninv(matA),
+    eigen_cholinv = cholinv(matA),
+    eigen_linearsolve = linearsolve(matA, vecB),
+    
+    # base R functions
+    R_elemmult = matA * matB,
+    R_matrixmult = matA %*% matB,
+    R_transpose = t(matA),
+    R_eigenvalues = eigen(matA),
+    R_eigeninv = solve(matA),
+    R_cholinv = chol2inv(matA),
+    R_linearsolve = solve(matA, vecB),
+    
+    times = 10,
+    unit = timeunit
+    
+  ) -> benchmark
+  
+  # return results
+  data.frame(x, as.data.frame(benchmark))
+  
+} -> results
 ```
-
