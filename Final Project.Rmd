@@ -40,6 +40,7 @@ Both types of languages contain their own advantages and disadvantages. The adva
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using Eigen::Map;
+using Eigen::SelfAdjointEigenSolver;
 
 //[[Rcpp::depends(RcppEigen)]]
 //[[Rcpp::export]]
@@ -80,6 +81,15 @@ MatrixXd eigentranspose(MatrixXd matA) {
 //[[Rcpp::depends(RcppEigen)]]
 //[[Rcpp::export]]
 
+MatrixXd eigenvalues(MatrixXd matA) {
+  // Function to compute eigenvalues
+  SelfAdjointEigenSolver<MatrixXd> es(matA);
+  return es.eigenvalues();
+}
+
+//[[Rcpp::depends(RcppEigen)]]
+//[[Rcpp::export]]
+
 MatrixXd eigeninv(MatrixXd matA) {
   // Function for Eigen inversion
   return matA.inverse();
@@ -92,6 +102,14 @@ MatrixXd cholinv(MatrixXd matA) {
   // Function for Cholesky inversion
   return matA.llt().solve(MatrixXd::Identity(matA.rows(), matA.rows()));
 }
+
+//[[Rcpp::depends(RcppEigen)]]
+//[[Rcpp::export]]
+
+MatrixXd linearsolve(MatrixXd matA, VectorXd vecB) {
+  // Function to solve linear equation Ax = b for vector x
+  return matA.inverse() * vecB;
+}
 ```
 
 ```{r, include=FALSE}
@@ -99,27 +117,19 @@ MatrixXd cholinv(MatrixXd matA) {
 set.seed(100)
 matA <- simmat(10, 10, 0, 1)
 matB <- simmat(10, 10, 0, 1)
-# Make vectors symmetric
+vecB <- rnorm(10)
+# Make matrices symmetric
 matA <- matA * t(matA)
 matB <- matB * t(matB)
 
 all.equal(elemmult(matA, matB), matA*matB)
 all.equal(matrixmult(matA, matB), matA%*%matB)
 all.equal(eigentranspose(matA), t(matA))
+all.equal(rev(as.vector(eigenvalues(matA))), eigen(matA)$values)
 all.equal(eigeninv(matA), solve(matA))
 # Will not be equal because Cholesky inversion requires matrix to be positive definite
 all.equal(cholinv(matA), chol2inv(matA))
-```
-
-```{r, include=FALSE}
-# First we can compare matrix simulation
-set.seed(100)
-m <- 10
-matA <- matrix(rnorm(m*m), m, m)
-matA <- matA %*% t(matA)
-isSymmetric(matA)
-vecx <- rnorm(m)
-vecb <- as.numeric(matA%*%vecx)
+all.equal(as.vector(linearsolve(matA, vecB)), solve(matA, vecB))
 ```
 
 ```{r, include=FALSE}
