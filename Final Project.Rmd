@@ -1,11 +1,11 @@
 ---
-title: "**Comparison of Matrix Algebra Computational Performance Between Base R and RcppEigen**"
-author: "**Costa Stavrianidis**"
+title: "**Comparison of Matrix Algebra Computational Performance Between RcppEigen and Base R**"
+author: 
+  - "**Costa Stavrianidis**"
+  - "GitHub Repository - https://github.com/Costa-Stavrianidis/BIOS823_Final"
 output: pdf_document
 fontsize: 10pt
 indent: true
-classoption:
-  - twocolumn
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +13,11 @@ library(tidyverse)
 library(RcppEigen)
 library(microbenchmark)
 library(foreach)
-library(ggplot)
+library(ggplot2)
+library(dplyr)
+library(flextable)
+library(reshape2)
+library(ggpubr)
 ```
 
 \begin{center}
@@ -21,7 +25,7 @@ library(ggplot)
 \end{center}
 
 \begin{small}
-In this study, we compare the performance of various matrix algebra computations across functions in base R and functions created using the RcppEigen package. The goal is to quantify the efficiency differences between the two for computations that complete the same goal. 
+In this study, we compare the performance of various matrix algebra computations across functions created using the RcppEigen package and functions in base R. The goal is to quantify the efficiency differences between the two for computations that complete the same goal. 
 \end{small}
 
 \vspace{12pt}
@@ -53,14 +57,6 @@ MatrixXd simmat(int nrow, int ncol, double mu, double sigma) {
   VectorXd randvec(nrow*ncol);
   randvec = Rcpp::as< Map<VectorXd> >(Rcpp::rnorm(nrow*ncol, mu,sigma));
   return Map<MatrixXd>(randvec.data(), nrow, ncol);
-}
-
-//[[Rcpp::depends(RcppEigen)]]
-//[[Rcpp::export]]
-
-MatrixXd elemmult(MatrixXd matA, MatrixXd matB) {
-  // Function for element-wise matrix multiplication
-  return matA.array() * matB.array();
 }
 
 //[[Rcpp::depends(RcppEigen)]]
@@ -123,7 +119,6 @@ vecB <- rnorm(10)
 matA <- t(matA) %*% matA
 matB <- t(matB) %*% matB
 
-all.equal(elemmult(matA, matB), matA*matB)
 all.equal(matrixmult(matA, matB), matA%*%matB)
 all.equal(eigentranspose(matA), t(matA))
 all.equal(rev(as.vector(eigenvalues(matA))), eigen(matA)$values)
@@ -140,7 +135,7 @@ set.seed(100)
 # Time unit for benchmarking
 timeunit <- "microseconds"
 
-foreach::foreach(x = c(10L, 50L, 100L, 200L, 500L, 1000L), .combine = rbind) %do% {
+foreach::foreach(x = c(10L, 50L, 100L, 200L, 500L), .combine = rbind) %do% {
 
   # Simulate symmetric random matrix
   matA <- simmat(x, x, 0, 1)
@@ -152,22 +147,23 @@ foreach::foreach(x = c(10L, 50L, 100L, 200L, 500L, 1000L), .combine = rbind) %do
   # Conduct benchmark analysis
   microbenchmark(
     
-    # RcppEigen functions
-    eigen_elemmult = elemmult(matA, matB),
-    eigen_matrixmult = matrixmult(matA, matB),
-    eigen_transpose = eigentranspose(matA),
-    eigen_eigenvalues = eigenvalues(matA),
-    eigen_eigeninv = eigeninv(matA),
-    eigen_cholinv = cholinv(matA),
-    eigen_linearsolve = linearsolve(matA, vecB),
-    
-    # base R functions
-    R_elemmult = matA * matB,
+    # Alternating between RcppEigen and base R functions
+    Eigen_matrixmult = matrixmult(matA, matB),
     R_matrixmult = matA %*% matB,
+    
+    Eigen_transpose = eigentranspose(matA),
     R_transpose = t(matA),
+    
+    Eigen_eigenvalues = eigenvalues(matA),
     R_eigenvalues = eigen(matA),
+    
+    Eigen_eigeninv = eigeninv(matA),
     R_eigeninv = solve(matA),
+    
+    Eigen_cholinv = cholinv(matA),
     R_cholinv = chol2inv(matA),
+    
+    Eigen_linearsolve = linearsolve(matA, vecB),
     R_linearsolve = solve(matA, vecB),
     
     times = 10,
@@ -179,4 +175,104 @@ foreach::foreach(x = c(10L, 50L, 100L, 200L, 500L, 1000L), .combine = rbind) %do
   data.frame(x, as.data.frame(benchmark))
   
 } -> results
+```
+
+```{r, include=FALSE}
+# Table summary with average of 10 replicates for each function
+results1 <- results %>% 
+  rename("Dimensions" = "x", "Time (microseconds)" = "time", "Function" = "expr")
+results1 <- aggregate(.~Dimensions + Function, results1, mean)
+results1 <- dcast(results1, Dimensions ~ Function)
+temp1 <- results1[,1:7]
+temp2 <- results1[,c(1, 8:13)]
+
+set_flextable_defaults(fonts_ignore = TRUE)
+table1 <- flextable(temp1)
+table1 <- theme_vanilla(table1)
+table1 <- set_caption(table1, "Time in Microseconds of First Set of RcppEigen and Base R Functions by Square Matrix Dimensions")
+table1 <- add_footer_lines(table1, "Table 1: Time to execute in microseconds for various matrix algebra functions using RcppEigen and base R. Dimensions column indicates dimensions of square matrix used for computation. Matrixmult computes product of matrix multiplication between two matrices, transpose transposes a matrix, and eigenvalues computes the eigenvalues of a matrix.")
+
+table2 <- flextable(temp2)
+table2 <- theme_vanilla(table2)
+table2 <- set_caption(table2, "Time in Microseconds of Second Set of RcppEigen and Base R Functions by Square Matrix Dimensions")
+table2 <- add_footer_lines(table2, "Table 2: Time to execute in microseconds for various matrix algebra functions using RcppEigen and base R. Dimensions column indicates dimensions of square matrix used for computation. Eigeninv inverts the matrix, cholinv inverts the matrix using the Cholesky decomposition, and linearsolve solves the linear equation Ax = b when given A and b by taking the inverse of matrix A and multiplying it by vector b.")
+```
+
+```{r, warnings=FALSE, echo=FALSE}
+# Print tables
+table1 <- width(table1, width = 1)
+table1 <- fontsize(table1, size = 8, part = "header")
+table1
+
+table2 <- width(table2, width = 1)
+table2 <- fontsize(table2, size = 8, part = "header")
+table2
+```
+
+```{r, warnings=FALSE, echo=FALSE}
+# Graphical summary
+results2 <- results %>% 
+  rename("Dimensions" = "x", "Function" = "expr")
+results2 <- results2 %>% 
+  mutate(Package = ifelse(grepl("Eigen", Function), "RcppEigen", "Base R"))
+
+data1 <- results2 %>% filter(grepl("matrixmult", Function))
+plot1 <- data1 %>% 
+  ggplot2::ggplot(aes(x = as.factor(Dimensions), y = time, 
+                      col = Package)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Dimensions of square matrix") +
+  ggplot2::ylab("Time (microseconds)")
+
+data2 <- results2 %>% filter(grepl("transpose", Function)) %>% filter(time < 9e07)
+plot2 <- data2 %>% 
+  ggplot2::ggplot(aes(x = as.factor(Dimensions), y = time, 
+                      col = Package)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Dimensions of square matrix") +
+  ggplot2::ylab("Time (microseconds)")
+
+data3 <- results2 %>% filter(grepl("eigenvalues", Function))
+plot3 <- data3 %>% 
+  ggplot2::ggplot(aes(x = as.factor(Dimensions), y = time, 
+                      col = Package)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Dimensions of square matrix") +
+  ggplot2::ylab("Time (microseconds)")
+
+data4 <- results2 %>% filter(grepl("eigeninv", Function))
+plot4 <- data4 %>% 
+  ggplot2::ggplot(aes(x = as.factor(Dimensions), y = time, 
+                      col = Package)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Dimensions of square matrix") +
+  ggplot2::ylab("Time (microseconds)")
+
+data5 <- results2 %>% filter(grepl("cholinv", Function))
+plot5 <- data5 %>% 
+  ggplot2::ggplot(aes(x = as.factor(Dimensions), y = time, 
+                      col = Package)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Dimensions of square matrix") +
+  ggplot2::ylab("Time (microseconds)")
+
+data6 <- results2 %>% filter(grepl("linearsolve", Function))
+plot6 <- data6 %>% 
+  ggplot2::ggplot(aes(x = as.factor(Dimensions), y = time, 
+                      col = Package)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Dimensions of square matrix") +
+  ggplot2::ylab("Time (microseconds)")
+```
+
+```{r, echo=FALSE, fig.height=10, fig.width=8}
+myplot <- ggarrange(plot1, plot2, plot3, plot4, plot5, plot6, nrow = 3, ncol = 2, labels = c("Matrix Multiplication", "Matrix Transpose", "Eigenvalue Calculation", "Matrix Inversion", "Cholesky Inversion", "Linear Equation Solution"), vjust = 1, font.label = c(size = 12))
+
+annotate_figure(myplot, top = text_grob("Figure 1: Time Efficiency of Matrix Algebra Functions", face = "bold", size = 14))
 ```
