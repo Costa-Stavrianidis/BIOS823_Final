@@ -1,5 +1,7 @@
 This is my final project for BIOSTAT 823. The goal of this study is to compare the efficiency of various matrix algebra computations across base R and RcppEigen.
 
+Below are the dependencies:
+
 R version 4.2.1 (2022-06-23)
 Platform: aarch64-apple-darwin20 (64-bit)
 Running under: macOS Monterey 12.5
