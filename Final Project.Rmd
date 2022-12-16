@@ -25,7 +25,7 @@ library(ggpubr)
 \end{center}
 
 \begin{small}
-In this study, we compare the performance of various matrix algebra computations across functions created using the RcppEigen package and functions in base R. The goal is to quantify the efficiency differences between the two for computations that complete the same goal. 
+In this study, we compare the performance of various matrix algebra computations across functions created using the RcppEigen package and functions in base R. The goal is to quantify and then visualize the efficiency differences between the two for computations that complete the same goal. Square matrices of dimensions 10, 50, 100, 200, and 500 were simulated from random normal distributions, with 100 replications of each computation performed for each size matrix. RcppEigen functions were faster than their base R counterparts for all computations on the largest size matrix besides one, with the increase in efficiency overall becoming more drastic as the dimensions of the matrix increased.
 \end{small}
 
 \vspace{12pt}
@@ -35,8 +35,23 @@ In this study, we compare the performance of various matrix algebra computations
 \end{center}
 Compiled programming languages have their programs compiled into machine-readable instructions before execution. Examples of compiled languages include C, C++, Rust, and Fortran. Interpreted languages have their programs read and executed by an interpreter rather than translating the program into machine-readable instructions. Examples of interpreted languages include Python, R, and JavaScript.
 
-Both types of languages contain their own advantages and disadvantages. The advantage of creating a compiled program is that it is faster than an interpreted program at execution.
+Both types of languages contain their own advantages and disadvantages. The advantages of creating a compiled program are that it is faster than an interpreted program at execution, and you can optimize your code depending on the machine you are using. The main disadvantage is that it may have platform dependence for the machine-readable code it generates. For interpreted languages, the advantages are that the code is platform independent, it allows for dynamic typing, debugging is typically easier, and the program sizes tend to be smaller. The main drawback is that the code executes slower than compiled languages.
 
+Eigen is a high-level C++ library that allows a user to perform matrix and vector operations, among many other things. The RcppEigen package (Bates and Eddelbuettel 2013) integrates this library into R using the Rcpp package (Eddelbuettel and Francois 2011). Users can utilize the RcppEigen package within their R environment to gain access to the various data structures and functions available in the original C++ library, as well as gain the advantage of the speed of using a compiled language such as C++.
+
+\vspace{12pt}
+
+\begin{center}
+\textbf{\Large Methods}
+\end{center}
+Six functions were written in RcppEigen and then used within R to test their efficiency. An equivalent (in terms of what the computation was doing at a high-level) six base R functions were compared to these functions. First, to make sure the functions were performing the correct calculation, results on simulated data from the equivalent functions across RcppEigen and R were checked to be equivalent. All functions had equivalent results except for one that utilizes the Cholesky decomposition, which requires a positive definite matrix for inversion. Since accuracy was not compared in this study, this result was ok to use. 
+
+To compare time efficiency between the RcppEigen and base R computations, the 12 computations were tested on simulated square matrices of sizes 10, 50, 100, 200, and 500, each 100 times. Times to execute the computation were recorded in microseconds, and then compared across RcppEigen functions and R functions.
+
+\pagebreak
+\begin{center}
+\textbf{\Large Results}
+\end{center}
 ```{Rcpp, include=FALSE}
 // Creating functions to compare with base R using RccpEigen
 #include <Rcpp.h>
@@ -166,7 +181,7 @@ foreach::foreach(x = c(10L, 50L, 100L, 200L, 500L), .combine = rbind) %do% {
     Eigen_linearsolve = linearsolve(matA, vecB),
     R_linearsolve = solve(matA, vecB),
     
-    times = 10,
+    times = 100,
     unit = timeunit
     
   ) -> benchmark
@@ -178,7 +193,7 @@ foreach::foreach(x = c(10L, 50L, 100L, 200L, 500L), .combine = rbind) %do% {
 ```
 
 ```{r, include=FALSE}
-# Table summary with average of 10 replicates for each function
+# Table summary with average of 100 replicates for each function
 results1 <- results %>% 
   rename("Dimensions" = "x", "Time (microseconds)" = "time", "Function" = "expr")
 results1 <- aggregate(.~Dimensions + Function, results1, mean)
@@ -190,12 +205,12 @@ set_flextable_defaults(fonts_ignore = TRUE)
 table1 <- flextable(temp1)
 table1 <- theme_vanilla(table1)
 table1 <- set_caption(table1, "Time in Microseconds of First Set of RcppEigen and Base R Functions by Square Matrix Dimensions")
-table1 <- add_footer_lines(table1, "Table 1: Time to execute in microseconds for various matrix algebra functions using RcppEigen and base R. Dimensions column indicates dimensions of square matrix used for computation. Matrixmult computes product of matrix multiplication between two matrices, transpose transposes a matrix, and eigenvalues computes the eigenvalues of a matrix.")
+table1 <- add_footer_lines(table1, "Table 1: Average time in microseconds over 100 replications to execute for various matrix algebra functions using RcppEigen and base R. Dimensions column indicates dimensions of square matrix used for computation. Matrixmult computes product of matrix multiplication between two matrices, transpose transposes a matrix, and eigenvalues computes the eigenvalues of a matrix.")
 
 table2 <- flextable(temp2)
 table2 <- theme_vanilla(table2)
 table2 <- set_caption(table2, "Time in Microseconds of Second Set of RcppEigen and Base R Functions by Square Matrix Dimensions")
-table2 <- add_footer_lines(table2, "Table 2: Time to execute in microseconds for various matrix algebra functions using RcppEigen and base R. Dimensions column indicates dimensions of square matrix used for computation. Eigeninv inverts the matrix, cholinv inverts the matrix using the Cholesky decomposition, and linearsolve solves the linear equation Ax = b when given A and b by taking the inverse of matrix A and multiplying it by vector b.")
+table2 <- add_footer_lines(table2, "Table 2: Average time in microseconds over 100 replications to execute for various matrix algebra functions using RcppEigen and base R. Dimensions column indicates dimensions of square matrix used for computation. Eigeninv inverts the matrix, cholinv inverts the matrix using the Cholesky decomposition, and linearsolve solves the linear equation Ax = b when given A and b by taking the inverse of matrix A and multiplying it by vector b.")
 ```
 
 ```{r, warnings=FALSE, echo=FALSE}
@@ -225,7 +240,7 @@ plot1 <- data1 %>%
   ggplot2::xlab("Dimensions of square matrix") +
   ggplot2::ylab("Time (microseconds)")
 
-data2 <- results2 %>% filter(grepl("transpose", Function)) %>% filter(time < 9e07)
+data2 <- results2 %>% filter(grepl("transpose", Function))
 plot2 <- data2 %>% 
   ggplot2::ggplot(aes(x = as.factor(Dimensions), y = time, 
                       col = Package)) +
@@ -276,3 +291,29 @@ myplot <- ggarrange(plot1, plot2, plot3, plot4, plot5, plot6, nrow = 3, ncol = 2
 
 annotate_figure(myplot, top = text_grob("Figure 1: Time Efficiency of Matrix Algebra Functions", face = "bold", size = 14))
 ```
+\pagebreak
+\begin{center}
+\textbf{\Large Discussion}
+\end{center}
+Tables 1 and 2 indicate the average time in microseconds for each computation across RcppEigen and base R functions for different size matrices. For all computations except the transposition, the RcppEigen function was more efficient than the base R equivalent for the largest square matrix with 500 rows and 500 columns.
+
+Figure 1 indicates the time efficiency of the different computations as the dimensions increase, with RcppEigen functions in blue, and base R in red. This allows us to visualize how the differences in efficiency are far more drastic as the size of the matrix increases. We can also see various outliers with the boxplots.
+
+\vspace{12pt}
+
+\begin{center}
+\textbf{\Large Conclusion}
+\end{center}
+At lower dimensions of the simulated matrices, there does not appear to be a large advantage in speed using the RcppEigen functions, however since the times are in microseconds, the differences may even be seen as negligible. Reasons for this could be due to outliers, or the R function actually being optimized in a certain way (perhaps through use of parallelization). It should also be noted that the RcppEigen functions may not be performing the computations in the most optimized way possible.
+
+The main differences can be seen when the size of the matrix gets large. Here, for the majority of the computations, using the compiled RcppEigen functions have a clear advantage in speed over the base R interpreted functions. To conclude, individuals who may find themselves needing to perform some sort of matrix algebra computation with a very large dataset could find it advantageous to utilize the speed of the RcppEigen functions. The benefits are more obvious as the size of the matrix increases. 
+
+\pagebreak
+\begin{center}
+\textbf{\Large References}
+\end{center}
+Douglas Bates and Dirk Eddelbuettel (2013). Fast and Elegant Numerical Linear Algebra Using the RcppEigen Package. Journal of Statistical Software, 52(5), 1-24. URL http://www.jstatsoft.org/v52/i05/.
+
+\vspace{8pt}
+
+Dirk Eddelbuettel and Romain Francois (2011). Rcpp: Seamless R and C++ Integration. Journal of Statistical Software, 40(8), 1-18, doi:10.18637/jss.v040.i08.
