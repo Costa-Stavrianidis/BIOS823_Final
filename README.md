@@ -1,3 +1,5 @@
+# BIOSTAT 823 Final Project
+
 This is my final project for BIOSTAT 823. The goal of this study is to compare the efficiency of various matrix algebra computations across base R and RcppEigen.
 
 Below are the dependencies:
